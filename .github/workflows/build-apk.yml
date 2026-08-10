@@ -1,4 +1,4 @@
-name: Build FNF‑V‑Slice APK
+name: Build FNF APK
 on:
   workflow_dispatch:
     inputs:
