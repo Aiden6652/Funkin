@@ -1,0 +1,37 @@
+name: Build FNF‑V‑Slice APK
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Setup Haxe
+        run: |
+          sudo add-apt-repository ppa:haxe/haxe4.3
+          sudo apt-get update
+          sudo apt-get install haxe=1:4.3.6-1
+          haxelib setup ~/.haxelib
+      - name: Install Haxelib libs
+        run: |
+          haxelib install lime 8.2.1
+          haxelib install openfl 9.4.0
+          haxelib install hxbitmapdata
+          haxelib install hxcpp
+          haxelib install polymod
+          haxelib set lime 8.2.1
+          haxelib set openfl 9.4.0
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Build Release APK
+        run: |
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          haxelib run lime build android -release
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fnf-vslice-release
+          path: export/android/bin/app-release-unsigned.apk
