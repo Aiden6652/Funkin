@@ -1,0 +1,66 @@
+name: Build FNF‑V‑Slice APK
+on:
+  workflow_dispatch:
+    inputs:
+      build-defines:
+        type: string
+        description: Build defines
+        default: '-DGITHUB_BUILD'
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      BUILD_DEFINES: ${{ github.event.inputs.build-defines }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          submodules: false
+
+      - name: Pull public assets & art
+        run: |
+          git clone --depth 1 https://github.com/FunkinCrew/Funkin.assets.git assets
+          git clone --depth 1 https://github.com/FunkinCrew/Funkin.art.git art
+
+      - name: Trim assets for smaller apk
+        run: |
+          rm -rf assets/data/languages/*
+          cp assets/data/languages/en-US.json assets/data/languages/
+          rm -rf assets/extra
+          find assets/music -name "*demo*.ogg" -delete
+          find assets/music -name "*draft*.ogg" -delete
+
+      - name: Setup Haxe 4.3.6
+        run: |
+          sudo add-apt-repository ppa:haxe/haxe4.3
+          sudo apt-get update
+          sudo apt-get install -y haxe=1:4.3.6-1
+          haxelib setup ~/.haxelib
+
+      - name: Cache haxelib
+        id: cache-hmm
+        uses: actions/cache@v5
+        with:
+          path: .haxelib
+          key: haxe-hmm-android-${{ hashFiles('**/hmm.json') }}
+
+      - name: Install libs via hmm
+        run: |
+          haxelib --never newrepo
+          haxelib run hmm install -q
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build Android Release APK
+        run: |
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          haxelib run lime build android -v -release $BUILD_DEFINES
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fnf-vslice-android
+          path: export/android/bin/app-release-unsigned.apk
