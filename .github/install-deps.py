@@ -24,6 +24,18 @@ with open('hmm.json') as f:
 deps = data['dependencies']
 git_deps = [d for d in deps if d.get('type') == 'git']
 
+DEPS_CACHE = os.path.join(BASE, 'git_deps.json')
+
+def load_git_deps():
+    """prepare() strips git deps from hmm.json, so dev() can't see them.
+    Cache the list on disk during prepare and prefer it here."""
+    if os.path.exists(DEPS_CACHE):
+        with open(DEPS_CACHE) as f:
+            return json.load(f)
+    with open('hmm.json') as f:
+        data = json.load(f)
+    return [d for d in data['dependencies'] if d.get('type') == 'git']
+
 def download(url, dest):
     req = urllib.request.Request(url, headers={'User-Agent': 'WorkBuddy-CI'})
     with urllib.request.urlopen(req, timeout=300) as r, open(dest, 'wb') as f:
@@ -84,6 +96,10 @@ def dev_all():
     print('All git deps dev-linked (local repo .haxelib)')
 
 if MODE == 'prepare':
+    # Persist git deps for the later dev() call (hmm.json gets stripped below)
+    with open(DEPS_CACHE, 'w') as f:
+        json.dump(git_deps, f, indent=2)
+    print(f'Cached {len(git_deps)} git deps to {DEPS_CACHE}')
     # Strip git deps so `hmm install` only handles haxelib deps,
     # then download + extract tarballs (no dev links yet)
     data['dependencies'] = [d for d in deps if d.get('type') != 'git']
@@ -92,11 +108,20 @@ if MODE == 'prepare':
     print(f'Removed {len(git_deps)} git deps from hmm.json, kept {len(data["dependencies"])} haxelib deps')
     fetch_all()
 elif MODE == 'dev':
+    # hmm.json was stripped by prepare(), reload git deps from cache
+    global git_deps
+    git_deps = load_git_deps()
+    print(f'Loaded {len(git_deps)} git deps from cache/hmm.json')
+    if not git_deps:
+        print('!! No git deps found - dev links will be empty!', file=sys.stderr)
+        sys.exit(1)
     # Cache may have hit (tarballs in /tmp wiped), so fetch first (skips existing)
     fetch_all()
     dev_all()
 else:
     # all: prepare + dev (legacy / local runs)
+    with open(DEPS_CACHE, 'w') as f:
+        json.dump(git_deps, f, indent=2)
     data['dependencies'] = [d for d in deps if d.get('type') != 'git']
     with open('hmm.json', 'w') as f:
         json.dump(data, f, indent=2)
