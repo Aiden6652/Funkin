@@ -115,6 +115,15 @@ jobs:
           neko -version 2>&1 || echo "neko not found"
           echo "=== END DIAG ==="
 
+      - name: Setup lime android
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          # lime setup android needs ANDROID_SDK_ROOT set; pass path non-interactively
+          haxelib --never run lime setup android 2>&1 | tail -5 || true
+          # verify it registered
+          grep -A3 "android" ~/.lime/config.xml 2>/dev/null | head -10 || echo "no config yet"
+
       - name: Build APK
         timeout-minutes: 60
         run: haxelib --never run lime build android -arm64 -v -release -DGITHUB_BUILD
