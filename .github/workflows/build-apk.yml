@@ -44,18 +44,7 @@ jobs:
 
       - name: Install hxcpp (full clone, shallow checkout fails)
         if: steps.cache-hmm.outputs.cache-hit != 'true'
-        run: |
-          python3 -c "
-import json
-d = json.load(open('hmm.json'))
-d['dependencies'] = [x for x in d['dependencies'] if x['name'] != 'hxcpp']
-json.dump(d, open('hmm.json', 'w'), indent=2)
-print('removed hxcpp from hmm.json')
-"
-          git clone https://github.com/FunkinCrew/hxcpp /tmp/hxcpp
-          cd /tmp/hxcpp
-          git checkout 450d112e50acff57b1bc9d584dcf1374c9e33995
-          haxelib dev hxcpp /tmp/hxcpp
+        run: python3 -c 'import json;d=json.load(open("hmm.json"));d["dependencies"]=[x for x in d["dependencies"] if x["name"]!="hxcpp"];json.dump(d,open("hmm.json","w"),indent=2);print("removed hxcpp")' && git clone https://github.com/FunkinCrew/hxcpp /tmp/hxcpp && cd /tmp/hxcpp && git checkout 450d112e50acff57b1bc9d584dcf1374c9e33995 && haxelib dev hxcpp /tmp/hxcpp
 
       - name: Install haxelibs
         if: steps.cache-hmm.outputs.cache-hit != 'true'
