@@ -63,7 +63,16 @@ def fetch_all():
 def dev_all():
     # hmm install uses '--never' (local repo .haxelib). Our dev links MUST
     # target the same repo or the override is silently ignored (lime 8.3.2 wins).
-    subprocess.run(['haxelib', '--never', 'newrepo', '--quiet'], check=True)
+    # hmm install already created .haxelib -> newrepo errors with
+    # 'Local repository already exists'; treat as success (or cwd has no repo yet).
+    try:
+        subprocess.run(['haxelib', '--never', 'newrepo', '--quiet'], check=True)
+    except subprocess.CalledProcessError as e:
+        if 'already exists' in (e.stderr or '') or 'already exists' in str(e.stdout or ''):
+            print('Local repo already exists, continuing', flush=True)
+        else:
+            # any other failure still isn't fatal if repo exists; just proceed
+            print(f'newrepo returned {e.returncode}, continuing anyway', flush=True)
     for dep in git_deps:
         name = dep['name']
         target = os.path.join(BASE, name)
