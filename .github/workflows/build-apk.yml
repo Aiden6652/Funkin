@@ -1,68 +1,87 @@
 name: Build FNF APK
 on:
   workflow_dispatch:
-    inputs:
-      build-defines:
-        type: string
-        description: Build defines
-        default: '-DGITHUB_BUILD'
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
-    env:
-      BUILD_DEFINES: ${{ github.event.inputs.build-defines }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          ref: main
-          submodules: false
+          submodules: recursive
+          fetch-depth: 0
 
-      - name: Pull public assets & art
+      - name: Install system deps
         run: |
-          git clone --depth 1 https://github.com/FunkinCrew/Funkin.assets.git assets
-          git clone --depth 1 https://github.com/FunkinCrew/Funkin.art.git art
+          sudo apt-get update
+          sudo apt-get install -y zip unzip wget build-essential libgl1-mesa-dev libglu1-mesa-dev \
+            libasound2-dev libx11-dev libxext-dev libxrender-dev libxtst-dev \
+            libtiff-dev libjpeg-dev libpng-dev libfreetype6-dev libgtk-3-dev \
+            libvlc-dev libvlccore-dev
 
-      - name: Trim assets for smaller apk
-        run: |
-          rm -rf assets/data/languages/*
-          cp assets/data/languages/en-US.json assets/data/languages/
-          rm -rf assets/extra
-          find assets/music -name "*demo*.ogg" -delete
-          find assets/music -name "*draft*.ogg" -delete
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
 
-# ============这里是修改后的Haxe安装部分，抛弃apt‑ppa============
-      - name: Setup Haxe 4.3.6 binary archive
+      - name: Setup Haxe 4.3.6
         run: |
-          wget https://github.com/HaxeFoundation/haxe/releases/download/4.3.6/haxe-4.3.6-linux64.tar.gz
-          tar -zxvf haxe-4.3.6-linux64.tar.gz
+          wget -q https://github.com/HaxeFoundation/haxe/releases/download/4.3.6/haxe-4.3.6-linux64.tar.gz
+          tar -zxf haxe-4.3.6-linux64.tar.gz
           sudo mv haxe-4.3.6 /opt/haxe
           echo "/opt/haxe" >> $GITHUB_PATH
           haxelib setup ~/.haxelib
 
-      - name: Cache haxelib
-        id: cache-hmm
-        uses: actions/cache@v5
+      - name: Install hmm
+        run: |
+          haxelib --global upgrade haxelib
+          haxelib --global install hmm
+
+      - id: cache-hmm
+        uses: actions/cache@v4
         with:
-          path: .haxelib
-          key: haxe-hmm-android-${{ hashFiles('**/hmm.json') }}
+          path: ~/.haxelib
+          key: haxe-hmm-android-${{ runner.os }}-4.3.6-${{ hashFiles('hmm.json') }}
+          restore-keys: haxe-hmm-android-${{ runner.os }}-4.3.6-
 
-      - name: Install libs via hmm
+      - name: Install haxelibs
+        if: steps.cache-hmm.outputs.cache-hit != 'true'
+        timeout-minutes: 40
         run: |
-          haxelib --never newrepo
-          haxelib run hmm install -q
+          for i in {1..10}; do
+            echo "Attempt $i / 10"
+            if haxelib --global run hmm install -q; then
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Rebuild lime ndll
+        run: haxelib run lime rebuild cpp
 
-      - name: Build Android Release APK
+      - name: Verify Android SDK
         run: |
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
-          haxelib run lime build android -v -release $BUILD_DEFINES
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+          echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
+          ls "$ANDROID_SDK_ROOT/ndk/"
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --version
 
-      - name: Upload APK Artifact
+      - name: Export Android env
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "NDK_ROOT=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          echo "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+
+      - name: Build APK
+        timeout-minutes: 60
+        run: haxelib run lime build android -v -release -DGITHUB_BUILD
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: fnf-vslice-android
-          path: export/android/bin/app-release-unsigned.apk
+          name: FNF-Android-APK
+          path: export/android/bin/**/*.apk
+          if-no-files-found: warn
+          retention-days: 14
