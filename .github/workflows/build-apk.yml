@@ -89,13 +89,34 @@ jobs:
           ls "$ANDROID_SDK_ROOT/ndk/"
           $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --version
 
+      - name: Install NDK r25c (25.2.9519653)
+        timeout-minutes: 30
+        run: |
+          set -e
+          SDKM="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          # accept licenses
+          yes | "$SDKM" --licenses > /dev/null 2>&1 || true
+          "$SDKM" "ndk;25.2.9519653"
+          echo "=== NDK dirs after install ==="
+          ls -la "$ANDROID_SDK_ROOT/ndk/"
+          test -d "$ANDROID_SDK_ROOT/ndk/25.2.9519653" && echo "NDK r25c folder EXISTS: $ANDROID_SDK_ROOT/ndk/25.2.9519653"
+          ls "$ANDROID_SDK_ROOT/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/" | grep -E "aarch64-linux-android-(clang|strip)" | head -5
+
       - name: Export Android env
         run: |
+          NDK_DIR="$ANDROID_SDK_ROOT/ndk/25.2.9519653"
+          NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -d "$NDK_DIR" || { echo "!! NDK r25c missing at $NDK_DIR"; exit 1; }
+          test -x "$NDK_BIN/aarch64-linux-android-clang" || { echo "!! clang missing in $NDK_BIN"; exit 1; }
+          # all NDK vars point at r25c
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_SDK=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "NDK_ROOT=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-          echo "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$NDK_DIR" >> $GITHUB_ENV
+          echo "NDK_ROOT=$NDK_DIR" >> $GITHUB_ENV
+          # NDK llvm bin FIRST in PATH (prepend, not append)
+          echo "PATH=$NDK_BIN:$PATH" >> $GITHUB_ENV
+          echo "NDK_BIN=$NDK_BIN" >> $GITHUB_ENV
 
       - name: Diagnostic - inspect lime ndll
         run: |
@@ -126,21 +147,18 @@ jobs:
           # verify it registered
           grep -A3 "android" ~/.lime/config.xml 2>/dev/null | head -10 || echo "no config yet"
 
-      - name: Prepare NDK toolchain PATH (strip etc)
+      - name: Verify NDK r25c toolchain
         run: |
-          NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          echo "$NDK_BIN" >> $GITHUB_PATH
-          ls "$NDK_BIN" | grep -i "strip\|aarch64-linux-android" | head -10
-          # NDK 27 may lack prefixed symlinks; create if missing
-          if [ ! -x "$NDK_BIN/aarch64-linux-android-strip" ]; then
-            ln -sf "$NDK_BIN/llvm-strip" "$NDK_BIN/aarch64-linux-android-strip"
-            echo "Created aarch64-linux-android-strip symlink"
-          fi
-          "$NDK_BIN/aarch64-linux-android-strip" --version | head -1 || true
+          echo "PATH head: $(echo $PATH | tr ':' '\n' | head -3 | tr '\n' ' ')"
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT"
+          which aarch64-linux-android-clang
+          which aarch64-linux-android-strip
+          aarch64-linux-android-clang --version | head -1
 
       - name: Build APK
         timeout-minutes: 60
-        run: haxelib --never run lime build android -arm64 -v -release -DGITHUB_BUILD
+        run: haxelib --never run lime build android -DEXCLUDE_ARMV7 -v -release -DGITHUB_BUILD
 
       - name: Sign APK (v1+v2)
         run: |
