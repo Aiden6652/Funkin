@@ -107,7 +107,13 @@ jobs:
           NDK_DIR="$ANDROID_SDK_ROOT/ndk/25.2.9519653"
           NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
           test -d "$NDK_DIR" || { echo "!! NDK r25c missing at $NDK_DIR"; exit 1; }
-          test -x "$NDK_BIN/aarch64-linux-android-clang" || { echo "!! clang missing in $NDK_BIN"; exit 1; }
+          # r25c ships host clang++ (hxcpp invokes it with --target=...), not a prefixed name
+          test -x "$NDK_BIN/clang++" || { echo "!! clang++ missing in $NDK_BIN"; ls "$NDK_BIN" | head -30; exit 1; }
+          # strip: llvm-strip, plus prefixed alias for lime
+          test -x "$NDK_BIN/llvm-strip" || { echo "!! llvm-strip missing"; exit 1; }
+          if [ ! -e "$NDK_BIN/aarch64-linux-android-strip" ]; then
+            ln -sf "$NDK_BIN/llvm-strip" "$NDK_BIN/aarch64-linux-android-strip"
+          fi
           # all NDK vars point at r25c
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_SDK=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
@@ -152,9 +158,10 @@ jobs:
           echo "PATH head: $(echo $PATH | tr ':' '\n' | head -3 | tr '\n' ' ')"
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
           echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT"
-          which aarch64-linux-android-clang
+          which clang++
+          which llvm-strip
           which aarch64-linux-android-strip
-          aarch64-linux-android-clang --version | head -1
+          clang++ --version | head -1
 
       - name: Build APK
         timeout-minutes: 60
