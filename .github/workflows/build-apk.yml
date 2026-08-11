@@ -28,18 +28,16 @@ jobs:
       - name: Setup Haxe 4.3.6
         run: |
           set -ex
-          sudo mkdir -p /opt/haxe /tmp/haxe-extract
-          curl -L -fsS -o /tmp/haxe.tar.gz             https://github.com/HaxeFoundation/haxe/releases/download/4.3.6/haxe-4.3.6-linux64.tar.gz
-          ls -la /tmp/haxe.tar.gz
-          file /tmp/haxe.tar.gz
-          echo "~~~ Tar contents (first 5) ~~~"
-          tar -tzf /tmp/haxe.tar.gz | head -5
-          tar -xzf /tmp/haxe.tar.gz -C /tmp/haxe-extract
-          ls /tmp/haxe-extract/
-          HAXE_TOP=$(ls /tmp/haxe-extract/)
-          echo "Top-level dir in tar: $HAXE_TOP"
-          sudo cp -r /tmp/haxe-extract/$HAXE_TOP/. /opt/haxe/
-          ls /opt/haxe
+          curl -L -fsS -o haxe.tar.gz             https://github.com/HaxeFoundation/haxe/releases/download/4.3.6/haxe-4.3.6-linux64.tar.gz
+          file haxe.tar.gz
+          echo "~~~ Tar contents (first 3) ~~~"
+          tar -tzf haxe.tar.gz | head -3
+          mkdir -p haxe-extract
+          tar -xzf haxe.tar.gz -C haxe-extract
+          echo "~~~ Extracted: $(ls haxe-extract/) ~~~"
+          sudo mkdir -p /opt/haxe
+          sudo cp -r haxe-extract/*/. /opt/haxe/
+          sudo chmod -R a+rX /opt/haxe
           echo "/opt/haxe" >> $GITHUB_PATH
           /opt/haxe/haxe -version
           haxelib setup ~/.haxelib
