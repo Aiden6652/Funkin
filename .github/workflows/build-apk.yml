@@ -30,6 +30,18 @@ jobs:
         with:
           haxe-version: 4.3.6
 
+      - name: Install neko 2.4.1 (FunkinCrew fork ndll requires it)
+        run: |
+          set -e
+          curl -fL https://github.com/HaxeFoundation/neko/releases/download/v2-4-1/neko-2.4.1-linux64.tar.gz -o neko-2.4.1.tar.gz
+          tar -xzf neko-2.4.1.tar.gz
+          NEKO_DIR=$(find . -maxdepth 1 -type d -name "neko*" | head -1)
+          echo "Installed neko at: $NEKO_DIR"
+          ls -la "$NEKO_DIR"
+          echo "$PWD/$NEKO_DIR" >> $GITHUB_PATH
+          echo "NEKOPATH=$PWD/$NEKO_DIR" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=$PWD/$NEKO_DIR:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+
       - name: Install hmm
         run: |
           haxelib --global upgrade haxelib

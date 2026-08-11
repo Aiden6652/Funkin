@@ -112,21 +112,6 @@ def dev_all():
         dev_path = target
         if dep.get('dir'):
             dev_path = os.path.join(target, dep['dir'])
-        if name == 'lime':
-            # Fork lime ships its OWN prebuilt ndll, but those are built by
-            # FunkinCrew's CI and fail to load on GH runner's neko 2.4.0
-            # ('Could not find lime.ndll' even though the file exists).
-            # hmm installs official lime 8.3.2 (haxelib release) whose ndll
-            # loads fine -> copy it over the fork's ndll dir.
-            official = os.path.join('.haxelib', 'lime', '8,3,2', 'ndll')
-            if os.path.isdir(official):
-                dest = os.path.join(target, 'ndll')
-                shutil.rmtree(dest, ignore_errors=True)
-                shutil.copytree(official, dest)
-                print(f'== {name}: replaced ndll with official 8.3.2 build', flush=True)
-            else:
-                print(f'!! {name}: official ndll not found at {official}, '
-                      f'keeping fork ndll', flush=True)
         for flags in (['--global'], ['--never']):
             print(f'== {name}: haxelib {" ".join(flags)} dev -> {dev_path}', flush=True)
             subprocess.run(['haxelib'] + flags + ['dev', name, dev_path], check=True)
