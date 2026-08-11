@@ -73,27 +73,33 @@ def fetch_all():
     print('All tarballs downloaded and extracted')
 
 def dev_all():
-    # hmm install uses '--never' (local repo .haxelib). Our dev links MUST
-    # target the same repo or the override is silently ignored (lime 8.3.2 wins).
-    # hmm install already created .haxelib -> newrepo errors with
-    # 'Local repository already exists'; treat as success (or cwd has no repo yet).
-    try:
-        subprocess.run(['haxelib', '--never', 'newrepo', '--quiet'], check=True)
-    except subprocess.CalledProcessError as e:
-        if 'already exists' in (e.stderr or '') or 'already exists' in str(e.stdout or ''):
-            print('Local repo already exists, continuing', flush=True)
-        else:
-            # any other failure still isn't fatal if repo exists; just proceed
-            print(f'newrepo returned {e.returncode}, continuing anyway', flush=True)
+    # lime tooling resolves deps via the GLOBAL repo (~/.haxelib) even when
+    # we run 'haxelib --never run lime'. hmm install populates the LOCAL repo
+    # (.haxelib) with official lime 8.3.2 + hxcpp. So dev-link EVERY git dep
+    # into BOTH repos: global (so lime internals find fork hxcpp/lime) and
+    # local (so hmm-managed libs get overridden by forks).
+    for flags in (['--global'], ['--never']):
+        # repo may not exist yet; creation error is fine if it does exist
+        try:
+            subprocess.run(['haxelib'] + flags + ['newrepo', '--quiet'], check=True,
+                           capture_output=True)
+        except subprocess.CalledProcessError:
+            pass
+        try:
+            subprocess.run(['haxelib'] + flags + ['fixrepo'], check=True,
+                           capture_output=True)
+        except subprocess.CalledProcessError:
+            pass
     for dep in git_deps:
         name = dep['name']
         target = os.path.join(BASE, name)
         dev_path = target
         if dep.get('dir'):
             dev_path = os.path.join(target, dep['dir'])
-        print(f'== {name}: haxelib --never dev -> {dev_path}', flush=True)
-        subprocess.run(['haxelib', '--never', 'dev', name, dev_path], check=True)
-    print('All git deps dev-linked (local repo .haxelib)')
+        for flags in (['--global'], ['--never']):
+            print(f'== {name}: haxelib {" ".join(flags)} dev -> {dev_path}', flush=True)
+            subprocess.run(['haxelib'] + flags + ['dev', name, dev_path], check=True)
+    print('All git deps dev-linked (global + local repo)')
 
 if MODE == 'prepare':
     # Persist git deps for the later dev() call (hmm.json gets stripped below)
