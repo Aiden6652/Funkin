@@ -108,8 +108,8 @@ if MODE == 'prepare':
     print(f'Removed {len(git_deps)} git deps from hmm.json, kept {len(data["dependencies"])} haxelib deps')
     fetch_all()
 elif MODE == 'dev':
-    # hmm.json was stripped by prepare(), reload git deps from cache
-    global git_deps
+    # hmm.json was stripped by prepare(), reload git deps from cache.
+    # (module-level name, no 'global' statement allowed at top level)
     git_deps = load_git_deps()
     print(f'Loaded {len(git_deps)} git deps from cache/hmm.json')
     if not git_deps:
