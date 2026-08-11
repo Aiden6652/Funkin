@@ -42,10 +42,10 @@ jobs:
           key: haxe-hmm-android-${{ runner.os }}-4.3.6-${{ hashFiles('hmm.json') }}
           restore-keys: haxe-hmm-android-${{ runner.os }}-4.3.6-
 
-      - name: Install git deps via tarball
+      - name: Download git deps tarballs (prepare)
         if: steps.cache-hmm.outputs.cache-hit != 'true'
         timeout-minutes: 30
-        run: python3 .github/install-deps.py
+        run: python3 .github/install-deps.py prepare
 
       - name: Install haxelibs via hmm
         if: steps.cache-hmm.outputs.cache-hit != 'true'
@@ -59,6 +59,10 @@ jobs:
             sleep 15
           done
           exit 1
+
+      - name: Re-link git deps (dev override)
+        timeout-minutes: 30
+        run: python3 .github/install-deps.py dev
 
       - name: Rebuild lime ndll
         run: haxelib run lime rebuild cpp

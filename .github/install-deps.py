@@ -14,6 +14,7 @@ This script:
 """
 import json, os, subprocess, urllib.request, tarfile, shutil, sys
 
+MODE = sys.argv[1] if len(sys.argv) > 1 else 'all'
 BASE = '/tmp/haxelib-deps'
 os.makedirs(BASE, exist_ok=True)
 
@@ -22,12 +23,6 @@ with open('hmm.json') as f:
 
 deps = data['dependencies']
 git_deps = [d for d in deps if d.get('type') == 'git']
-
-# Strip git deps so `hmm install` only handles haxelib deps
-data['dependencies'] = [d for d in deps if d.get('type') != 'git']
-with open('hmm.json', 'w') as f:
-    json.dump(data, f, indent=2)
-print(f'Removed {len(git_deps)} git deps from hmm.json, kept {len(data["dependencies"])} haxelib deps')
 
 def download(url, dest):
     req = urllib.request.Request(url, headers={'User-Agent': 'WorkBuddy-CI'})
@@ -41,28 +36,58 @@ def extract(tgz, target):
             m.name = parts[1] if len(parts) == 2 else parts[0]
         t.extractall(target, filter='data')
 
-for dep in git_deps:
-    name = dep['name']
-    ref = dep['ref']
-    url = dep['url'].rstrip('/').removesuffix('.git')
-    if not url.startswith('http'):
-        url = 'https://github.com/' + url
-    repo_path = url.replace('https://github.com/', '').replace('http://github.com/', '')
-    tgz = os.path.join(BASE, name + '.tar.gz')
-    dl_url = f'https://codeload.github.com/{repo_path}/tar.gz/{ref}'
-    print(f'== {name}: downloading {dl_url}', flush=True)
-    try:
-        download(dl_url, tgz)
-    except Exception as e:
-        print(f'!! {name}: download failed: {e}', file=sys.stderr)
-        sys.exit(1)
-    target = os.path.join(BASE, name)
-    os.makedirs(target, exist_ok=True)
-    extract(tgz, target)
-    dev_path = target
-    if dep.get('dir'):
-        dev_path = os.path.join(target, dep['dir'])
-    print(f'== {name}: haxelib dev -> {dev_path}', flush=True)
-    subprocess.run(['haxelib', 'dev', name, dev_path], check=True)
+def fetch_all():
+    for dep in git_deps:
+        name = dep['name']
+        target = os.path.join(BASE, name)
+        if os.path.isdir(target) and os.listdir(target):
+            print(f'== {name}: already present, skip', flush=True)
+            continue
+        ref = dep['ref']
+        url = dep['url'].rstrip('/').removesuffix('.git')
+        if not url.startswith('http'):
+            url = 'https://github.com/' + url
+        repo_path = url.replace('https://github.com/', '').replace('http://github.com/', '')
+        tgz = os.path.join(BASE, name + '.tar.gz')
+        dl_url = f'https://codeload.github.com/{repo_path}/tar.gz/{ref}'
+        print(f'== {name}: downloading {dl_url}', flush=True)
+        try:
+            download(dl_url, tgz)
+        except Exception as e:
+            print(f'!! {name}: download failed: {e}', file=sys.stderr)
+            sys.exit(1)
+        os.makedirs(target, exist_ok=True)
+        extract(tgz, target)
+    print('All tarballs downloaded and extracted')
 
-print('All git deps installed via tarball')
+def dev_all():
+    for dep in git_deps:
+        name = dep['name']
+        target = os.path.join(BASE, name)
+        dev_path = target
+        if dep.get('dir'):
+            dev_path = os.path.join(target, dep['dir'])
+        print(f'== {name}: haxelib dev -> {dev_path}', flush=True)
+        subprocess.run(['haxelib', 'dev', name, dev_path], check=True)
+    print('All git deps dev-linked')
+
+if MODE == 'prepare':
+    # Strip git deps so `hmm install` only handles haxelib deps,
+    # then download + extract tarballs (no dev links yet)
+    data['dependencies'] = [d for d in deps if d.get('type') != 'git']
+    with open('hmm.json', 'w') as f:
+        json.dump(data, f, indent=2)
+    print(f'Removed {len(git_deps)} git deps from hmm.json, kept {len(data["dependencies"])} haxelib deps')
+    fetch_all()
+elif MODE == 'dev':
+    # Cache may have hit (tarballs in /tmp wiped), so fetch first (skips existing)
+    fetch_all()
+    dev_all()
+else:
+    # all: prepare + dev (legacy / local runs)
+    data['dependencies'] = [d for d in deps if d.get('type') != 'git']
+    with open('hmm.json', 'w') as f:
+        json.dump(data, f, indent=2)
+    print(f'Removed {len(git_deps)} git deps from hmm.json, kept {len(data["dependencies"])} haxelib deps')
+    fetch_all()
+    dev_all()
