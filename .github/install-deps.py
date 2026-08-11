@@ -61,15 +61,18 @@ def fetch_all():
     print('All tarballs downloaded and extracted')
 
 def dev_all():
+    # hmm install uses '--never' (local repo .haxelib). Our dev links MUST
+    # target the same repo or the override is silently ignored (lime 8.3.2 wins).
+    subprocess.run(['haxelib', '--never', 'newrepo', '--quiet'], check=True)
     for dep in git_deps:
         name = dep['name']
         target = os.path.join(BASE, name)
         dev_path = target
         if dep.get('dir'):
             dev_path = os.path.join(target, dep['dir'])
-        print(f'== {name}: haxelib dev -> {dev_path}', flush=True)
-        subprocess.run(['haxelib', 'dev', name, dev_path], check=True)
-    print('All git deps dev-linked')
+        print(f'== {name}: haxelib --never dev -> {dev_path}', flush=True)
+        subprocess.run(['haxelib', '--never', 'dev', name, dev_path], check=True)
+    print('All git deps dev-linked (local repo .haxelib)')
 
 if MODE == 'prepare':
     # Strip git deps so `hmm install` only handles haxelib deps,
