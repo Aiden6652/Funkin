@@ -65,7 +65,7 @@ jobs:
         run: python3 .github/install-deps.py dev
 
       - name: Rebuild lime ndll
-        run: haxelib run lime rebuild cpp
+        run: haxelib --never run lime rebuild cpp
 
       - name: Verify Android SDK
         run: |
@@ -82,7 +82,7 @@ jobs:
 
       - name: Build APK
         timeout-minutes: 60
-        run: haxelib run lime build android -v -release -DGITHUB_BUILD
+        run: haxelib --never run lime build android -v -release -DGITHUB_BUILD
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
