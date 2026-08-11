@@ -167,12 +167,37 @@ jobs:
         timeout-minutes: 60
         run: haxelib --never run lime build android -DEXCLUDE_ARMV7 -v -release -DGITHUB_BUILD
 
-      - name: Upload APK (unsigned - sign on phone)
+      - name: Locate and rename APK
+        run: |
+          set -e
+          APK=$(ls export/release/android/bin/app/build/outputs/apk/*/*.apk export/release/android/bin/app/build/outputs/apk/*.apk export/android/bin/*.apk 2>/dev/null | grep -v unsigned | head -1)
+          if [ -z "$APK" ]; then
+            APK=$(ls export/release/android/bin/**/*.apk export/android/bin/**/*.apk 2>/dev/null | head -1)
+          fi
+          echo "Found APK: $APK"
+          test -n "$APK" || { echo "!! no apk"; exit 1; }
+          mkdir -p dist
+          cp "$APK" "dist/FNF-Android-arm64-unsigned.apk"
+          ls -la dist/
+
+      - name: Upload APK artifact (unsigned - sign on phone)
         uses: actions/upload-artifact@v4
         with:
           name: FNF-Android-APK-unsigned
-          path: |
-            export/release/android/bin/**/*.apk
-            export/android/bin/**/*.apk
+          path: dist/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: FNF Android Build #${{ github.run_number }}
+          body: |
+            Friday Night Funkin 0.8.x Android APK
+
+            - 架构: arm64-v8a only (NDK r25c, EXCLUDE_ARMV7)
+            - 签名: **未签名**，请在手机上签名后安装 (MT管理器/ApkEditor/apksigner)
+            - 不依赖 Google Play 服务
+          files: dist/*.apk
+          fail_on_unmatched_files: true
