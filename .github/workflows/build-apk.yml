@@ -167,33 +167,12 @@ jobs:
         timeout-minutes: 60
         run: haxelib --never run lime build android -DEXCLUDE_ARMV7 -v -release -DGITHUB_BUILD
 
-      - name: Sign APK (v1+v2)
-        run: |
-          set -e
-          APK=$(ls export/android/bin/*.apk 2>/dev/null | head -1)
-          if [ -z "$APK" ]; then
-            echo "!! No APK found in export/android/bin/"
-            ls -la export/android/bin/ 2>/dev/null || echo "no bin dir"
-            exit 1
-          fi
-          echo "APK: $APK"
-          # generate keystore (dev signing key)
-          keytool -genkeypair -v -keystore release.keystore -alias fnf             -keyalg RSA -keysize 2048 -validity 10000             -storepass fnfpass123 -keypass fnfpass123             -dname "CN=Friday Night Funkin, OU=Dev, O=FNF, L=City, S=State, C=US" 2>&1 | tail -2
-          # find apksigner
-          APKSIGNER=$(ls $ANDROID_SDK_ROOT/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
-          if [ -z "$APKSIGNER" ]; then
-            APKSIGNER=$(ls /opt/android-sdk/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
-          fi
-          echo "apksigner: $APKSIGNER"
-          "$APKSIGNER" sign --ks release.keystore --ks-pass pass:fnfpass123             --key-pass pass:fnfpass123             --v1-signing-enabled true --v2-signing-enabled true             --out "$APK.signed" "$APK" 2>&1 | tail -5
-          mv "$APK.signed" "$APK"
-          echo "=== signed APK verified ==="
-          "$APKSIGNER" verify --print-certs "$APK" 2>&1 | head -10
-
-      - name: Upload APK
+      - name: Upload APK (unsigned - sign on phone)
         uses: actions/upload-artifact@v4
         with:
-          name: FNF-Android-APK
-          path: export/android/bin/**/*.apk
-          if-no-files-found: warn
+          name: FNF-Android-APK-unsigned
+          path: |
+            export/release/android/bin/**/*.apk
+            export/android/bin/**/*.apk
+          if-no-files-found: error
           retention-days: 14
