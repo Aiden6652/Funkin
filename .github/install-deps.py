@@ -44,7 +44,7 @@ def extract(tgz, target):
 for dep in git_deps:
     name = dep['name']
     ref = dep['ref']
-    url = dep['url'].rstrip('/').rstrip('.git')
+    url = dep['url'].rstrip('/').removesuffix('.git')
     if not url.startswith('http'):
         url = 'https://github.com/' + url
     repo_path = url.replace('https://github.com/', '').replace('http://github.com/', '')
