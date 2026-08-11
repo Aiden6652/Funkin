@@ -30,6 +30,12 @@ jobs:
         with:
           haxe-version: 4.3.6
 
+      - name: Fix libffi for neko (libffi.so.6 symlink - official FNF Docker does this)
+        run: |
+          sudo apt-get install -y libffi-dev
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libffi.so.8 /usr/lib/x86_64-linux-gnu/libffi.so.6
+          ls -la /usr/lib/x86_64-linux-gnu/libffi.so.6
+
       - name: Install neko 2.4.1 (FunkinCrew fork ndll requires it)
         run: |
           set -e
