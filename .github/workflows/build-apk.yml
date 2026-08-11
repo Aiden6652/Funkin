@@ -107,6 +107,12 @@ jobs:
           echo "=== ls official lime 8.3.2 ndll ==="
           ls -la .haxelib/lime/8,3,2/ndll/ 2>&1 | head -20
           ls -la .haxelib/lime/8,3,2/ndll/Linux64/ 2>&1 | head -10
+          echo "=== ldd fork lime.ndll ==="
+          ldd /tmp/haxelib-deps/lime/ndll/Linux64/lime.ndll 2>&1 | head -20
+          echo "=== ldd fork lime/Linux lime.ndll ==="
+          ldd /tmp/haxelib-deps/lime/ndll/Linux/lime.ndll 2>&1 | head -20
+          echo "=== neko version ==="
+          neko -version 2>&1 || echo "neko not found"
           echo "=== END DIAG ==="
 
       - name: Build APK
