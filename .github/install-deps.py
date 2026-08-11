@@ -93,12 +93,20 @@ def dev_all():
     for dep in git_deps:
         name = dep['name']
         if name == 'hxcpp':
-            # hmm already installed a PRE-COMPILED hxcpp 4.3.2 (haxelib version).
-            # Dev-linking the fork (source) overrides it -> 'Can't continue without
-            # hxcpp.n' because the source checkout isn't built yet. Both lime rebuild
-            # and the APK build need the toolchain binary, not the fork source.
-            # Use hmm's binary hxcpp.
-            print(f'== {name}: skipping dev (keep hmm precompiled)', flush=True)
+            # hmm installs a PRE-COMPILED hxcpp into the LOCAL repo (.haxelib).
+            # lime tooling, however, resolves hxcpp via the GLOBAL repo when it
+            # builds (we saw 'Library hxcpp is not installed'). Dev-linking the
+            # fork (source) to global gives 'Can't continue without hxcpp.n'
+            # because the source isn't built. So: install the OFFICIAL precompiled
+            # hxcpp into the GLOBAL repo too, and do NOT dev-link the fork.
+            print(f'== {name}: installing precompiled to global repo', flush=True)
+            try:
+                subprocess.run(['haxelib', '--global', 'install', 'hxcpp'],
+                               check=True, capture_output=True)
+                print(f'== {name}: global install OK', flush=True)
+            except subprocess.CalledProcessError as e:
+                print(f'!! {name}: global install failed rc={e.returncode}, '
+                      f'continuing (may already exist)', flush=True)
             continue
         target = os.path.join(BASE, name)
         dev_path = target
