@@ -40,7 +40,7 @@ jobs:
           sudo chmod -R a+rX /opt/haxe
           echo "/opt/haxe" >> $GITHUB_PATH
           /opt/haxe/haxe -version
-          haxelib setup ~/.haxelib
+          /opt/haxe/haxelib setup ~/.haxelib
 
       - name: Install hmm
         run: |
