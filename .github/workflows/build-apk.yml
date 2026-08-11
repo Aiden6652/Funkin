@@ -42,13 +42,14 @@ jobs:
           key: haxe-hmm-android-${{ runner.os }}-4.3.6-${{ hashFiles('hmm.json') }}
           restore-keys: haxe-hmm-android-${{ runner.os }}-4.3.6-
 
-      - name: Install hxcpp (full clone, shallow checkout fails)
+      - name: Install git deps via tarball
         if: steps.cache-hmm.outputs.cache-hit != 'true'
-        run: python3 -c 'import json;d=json.load(open("hmm.json"));d["dependencies"]=[x for x in d["dependencies"] if x["name"]!="hxcpp"];json.dump(d,open("hmm.json","w"),indent=2);print("removed hxcpp")' && curl -L -fsS -o /tmp/hxcpp.tgz https://codeload.github.com/FunkinCrew/hxcpp/tar.gz/450d112e50acff57b1bc9d584dcf1374c9e33995 && rm -rf /tmp/hxcpp && mkdir -p /tmp/hxcpp && tar -xzf /tmp/hxcpp.tgz -C /tmp/hxcpp --strip-components=1 && haxelib dev hxcpp /tmp/hxcpp
+        timeout-minutes: 30
+        run: python3 .github/install-deps.py
 
-      - name: Install haxelibs
+      - name: Install haxelibs via hmm
         if: steps.cache-hmm.outputs.cache-hit != 'true'
-        timeout-minutes: 40
+        timeout-minutes: 20
         run: |
           for i in {1..10}; do
             echo "Attempt $i / 10"
