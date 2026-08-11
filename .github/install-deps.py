@@ -92,6 +92,14 @@ def dev_all():
             pass
     for dep in git_deps:
         name = dep['name']
+        if name == 'hxcpp':
+            # hmm already installed a PRE-COMPILED hxcpp 4.3.2 (haxelib version).
+            # Dev-linking the fork (source) overrides it -> 'Can't continue without
+            # hxcpp.n' because the source checkout isn't built yet. Both lime rebuild
+            # and the APK build need the toolchain binary, not the fork source.
+            # Use hmm's binary hxcpp.
+            print(f'== {name}: skipping dev (keep hmm precompiled)', flush=True)
+            continue
         target = os.path.join(BASE, name)
         dev_path = target
         if dep.get('dir'):
